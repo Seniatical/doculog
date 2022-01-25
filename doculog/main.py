@@ -1,6 +1,7 @@
 """
 CLI entrypoints to the code.
 """
+from asyncio.log import logger
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -19,7 +20,7 @@ def generate_changelog():
     doc.save()
 
     if log_path.exists():
-        print(f"Saved changelog to {log_path}")
+        logger.info(f"Saved changelog to {log_path}")
 
 
 parser = ArgumentParser(
