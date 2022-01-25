@@ -4,11 +4,13 @@ Call the server for intelligent changelog features.
 import hashlib
 import json
 import os
+import logging
 from typing import Dict, List, Optional, Union
 
 import requests
 
 SERVER_DOMAIN = "https://av9kmkrq4f.execute-api.eu-west-2.amazonaws.com/Prod/"
+logger = logging.getLogger(__name__)
 
 
 def post(
@@ -97,7 +99,7 @@ def validate_key() -> bool:
     api_key = os.getenv("DOCUMATIC_API_KEY") or os.getenv("DOCULOG_API_KEY")
 
     if not api_key:
-        print("DOCUMATIC_API_KEY not in environment")
+        logger.info("DOCUMATIC_API_KEY not in environment")
         return False
 
     if os.getenv("DOCULOG_RUN_LOCALLY") != "False":
@@ -117,9 +119,10 @@ def validate_key() -> bool:
         return response.json()["message"]
     else:
         if response.status_code == 403:
-            print(
+            logger.error(
                 f"""\nAPI call error: {response.headers['x-amzn-errortype']}.
 Please file a bug report if this is unexpected.
-doculog can still run, but without advanced features.\n"""
+doculog can still run, but without advanced features.\n""",
+                exc_info=1
             )
         return False
