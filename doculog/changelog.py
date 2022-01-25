@@ -4,9 +4,12 @@ Changelog framework.
 import re
 from pathlib import Path
 from typing import Optional, Tuple
+import logging
 
 from doculog.git import get_commits, has_git, list_tags
 from doculog.requests import post
+
+logger = logging.getLogger(__name__)
 
 
 class ChangelogSection:
@@ -354,7 +357,7 @@ class ChangelogDoc:
 
     def generate(self) -> None:
         if not self.has_git:
-            print(
+            logger.warn(
                 "Git not enabled in current working directory. Not generating Changelog."
             )
             return
