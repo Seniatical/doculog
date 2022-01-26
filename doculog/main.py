@@ -5,6 +5,8 @@ from asyncio.log import logger
 from pathlib import Path
 from argparse import ArgumentParser
 
+from black import os
+
 from doculog.config import configure
 from doculog import ChangelogDoc, __version__
 
@@ -28,10 +30,16 @@ parser = ArgumentParser(
     description=f"Doculog v{__version__}",
 )
 
-parser.add_argument("--cl", "-change-log", 
+parser.add_argument("-cl", "--change-log", 
     action="store_true",
     dest="cl",
-    help="Generates changelog for project"
+    help="generates changelog for project"
+)
+
+parser.add_argument("-v", "--version",
+    action="store_true",
+    dest="v",
+    help="returns current doculog version"
 )
 
 def parse():
@@ -43,7 +51,10 @@ def parse():
         exit(0)
 
     if args["cl"]:
-        # Called when --cl or -change-log flag is used
+        # Called when -cl or --change-log flag is used
         generate_changelog()
+
+    if args["v"]:
+        print(f"v{__version__}")
 
     exit(0)
