@@ -207,7 +207,28 @@ header to your `pyproject.toml`, example shown below.
 ```
 [tool.doculog.categories]
 create_section = true
-"Feat: " = "New Features Added"
+"Feat:" = "New Features Added:"
+```
+
+#### Example Code Gen with categories
+**create_section = false**
+```md
+## v0.0.1 - 00/00/0000
+
+### Changed
+New Features Added: .edit method
+New Features Added: .delete method
+```
+
+**create_section = true**
+```md
+## v0.0.01 - 00/00/0000
+
+### Changed
+
+#### New Features Added:
+* .edit method
+* .delete method
 ```
 
 ## Developers
