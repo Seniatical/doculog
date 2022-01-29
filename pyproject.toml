@@ -9,3 +9,7 @@ docdir = "."
 [tool.doculog]
 changelog = "CHANGELOG"
 local = true
+
+[tool.doculog.categories]
+create_section = true
+"Feat:" = "New Features Added:"

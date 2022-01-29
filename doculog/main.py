@@ -4,8 +4,9 @@ CLI entrypoints to the code.
 from asyncio.log import logger
 from pathlib import Path
 from argparse import ArgumentParser
-
-from black import os
+import os
+import logging
+import sys
 
 from doculog.config import configure
 from doculog import ChangelogDoc, __version__
@@ -17,13 +18,14 @@ def generate_changelog():
     config = configure(root)
     log_path = root / config["changelog_name"]
 
-    doc = ChangelogDoc(log_path)
+    doc = ChangelogDoc(log_path, config["categories"], config["category_options"])
     doc.generate()
     doc.save()
 
     if log_path.exists():
-        logger.info(f"Saved changelog to {log_path}")
-
+        logger.info(f"Saved changelog to: {log_path}")
+    else:
+        logger.error(f"Generating changelog failed, path provided: {log_path}", exc_info=1)
 
 parser = ArgumentParser(
     prog="doculog",
@@ -42,19 +44,39 @@ parser.add_argument("-v", "--version",
     help="returns current doculog version"
 )
 
+def update_logger():
+    # We want all messages to be displayed
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] [%(name)s]: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    logger.addHandler(handler)
+
 def parse():
-    args = {k: v for k, v in vars(parser.parse_args()).items() if v is not None}
+    args = vars(parser.parse_args())
 
-    if not args:
-        # Some message or default text displayed here maybe
-        # Command Used: doculog
-        exit(0)
+    # When working with CLI we want logs to be in a place a user can see
+    # To file: doculog > output.log
+    # else just displays to sys.sdout
+    update_logger()
 
-    if args["cl"]:
-        # Called when -cl or --change-log flag is used
-        generate_changelog()
+    if args["ow"]:
+        if os.path.exists("./CHANGELOG.md"):
+            os.remove("./CHANGELOG.md")
+            logger.info("Deleted original changelog, generating from scratch")
+        else:
+            logger.warn("Overwrite flag provided, but not file found")
+
+    # if args["cl"]:
+    #    # Called when --cl or -change-log flag is used
+    #    generate_changelog()
 
     if args["v"]:
         print(f"v{__version__}")
+
+    logger.debug("Generating changelog")
+    generate_changelog()
 
     exit(0)

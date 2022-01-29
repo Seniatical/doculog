@@ -2,6 +2,7 @@
 Changelog framework.
 """
 import re
+import logging
 from pathlib import Path
 from typing import Optional, Tuple
 import logging
@@ -22,16 +23,31 @@ class ChangelogSection:
         The title of the section
     _commits : list of str
         Each element is a "* " prepended changelog point
+    nest_count : int = 3
+        How many times the section has been embedded, e.g.
+
+        ```md
+        # nest 1
+        
+        ## nest 2
+
+        ### nest 3
+
+        #### nest 4
+        ```
 
     Parameters
     ----------
     title : str
         The title of the section
+    nests : int (kw only)
+        How many times this section is nested in other sections
     """
 
-    def __init__(self, title: str) -> None:
+    def __init__(self, title: str, *, nests: int = 3) -> None:
         self.title = title
         self._commits = []
+        self.nest_count = nests
 
     def add_commit(self, commit_title: str):
         if not re.match(r"\s*[\*-]\s", commit_title):
@@ -51,7 +67,7 @@ class ChangelogSection:
         self._commits = unique_commits
 
     def __str__(self) -> str:
-        content = f"### {self.title}\n\n"
+        content = f"{'#' * self.nest_count} {self.title}\n\n"
 
         for _commit in self._commits:
             content += _commit + "\n"
@@ -74,9 +90,13 @@ class ChangelogRelease:
     ----------
     version : str
     date : str
+    categories : dict
+    category_options : list
     """
 
-    def __init__(self, version: str, date: str) -> None:
+    def __init__(self, version: str, date: str, 
+        categories: dict = {}, category_options: list = []
+    ) -> None:
         self._version = version
         self._date = date
 
@@ -87,6 +107,12 @@ class ChangelogRelease:
             "Removed": ChangelogSection("Removed"),
             "Deprecated": ChangelogSection("Deprecated"),
         }
+        self.categories = categories
+        self._cat_opts = category_options
+
+        if "create_section" in category_options:
+            for cat_title in categories.values():
+                self._sections[cat_title] = ChangelogSection(cat_title, nests=4)
 
         self._batched_commits = []
 
@@ -108,7 +134,19 @@ class ChangelogRelease:
 
         for com in commits:
             if title := com["title"]:
-                commit_type, clean_commit = self.catalog_commit(title)
+                for cat_title in self.categories:
+                    if title.startswith(cat_title):
+                        title = title[len(cat_title):]
+                        # Bug: Fix ... -> Fix ...
+                        if "create_section" in self._cat_opts:
+                            commit_type, clean_commit = cat_title, title
+                        else:
+                            commit_type, clean_commit = self.catalog_commit(title)
+                            clean_commit = self.categories[cat_title] + clean_commit
+                        break
+                else:
+                    commit_type, clean_commit = self.catalog_commit(title)
+
                 self.track_commit(commit_type, clean_commit)
 
         self.post_classification()
@@ -273,11 +311,11 @@ class ChangelogUnreleased(ChangelogRelease):
     "Unreleased" does not show a date in its changelog header.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, categories: dict = {}, category_options: list = []) -> None:
         # Use some far future date to get all unreleased commits
         # Some dates, e.g. 2100-12-31, yield 0 commits.
         # TODO: Need to work out why
-        super().__init__("Unreleased", "2099-01-01")
+        super().__init__("Unreleased", "2099-01-01", categories, category_options)
 
     def header(self) -> str:
         return f"## {self._version}"
@@ -297,12 +335,22 @@ class ChangelogDoc:
         List of git tags.
         First element of tuple is git tag name.
         Second element of tuple is git tag date.
+    _categories: dict[str, str]
+        Desired categories to organise commit off of
+    _cat_opts: list[str]
+        Selected options for categorical changes
     """
 
-    def __init__(self, changelog_path: Path) -> None:
+    def __init__(self, 
+        changelog_path: Path,
+        categories: dict = dict(),
+        category_options: list = list()
+    ) -> None:
         self._releases = {}
         self._changelog_path = changelog_path
         self._tags = list_tags()
+        self._categories = categories
+        self._cat_opts = category_options
 
         self.has_git = has_git()
 
@@ -325,9 +373,14 @@ class ChangelogDoc:
         def _read_release():
             if curr_version is not None:
                 if curr_version.lower() == "unreleased":
-                    new_release = ChangelogUnreleased()
+                    new_release = ChangelogUnreleased(self._categories, self._cat_opts)
                 else:
-                    new_release = ChangelogRelease(curr_version, version_date)
+                    new_release = ChangelogRelease(
+                        curr_version, 
+                        version_date, 
+                        self._categories, 
+                        self._cat_opts
+                    )
 
                 new_release.read(curr_lines)
                 self._releases[curr_version] = new_release
@@ -357,8 +410,9 @@ class ChangelogDoc:
 
     def generate(self) -> None:
         if not self.has_git:
-            logger.warn(
-                "Git not enabled in current working directory. Not generating Changelog."
+            logger.error(
+                "Git not enabled in current working directory.",
+                exc_info=1
             )
             return
 

@@ -99,7 +99,7 @@ def validate_key() -> bool:
     api_key = os.getenv("DOCUMATIC_API_KEY") or os.getenv("DOCULOG_API_KEY")
 
     if not api_key:
-        logger.info("DOCUMATIC_API_KEY not in environment")
+        logger.warn("DOCUMATIC_API_KEY not in environment")
         return False
 
     if os.getenv("DOCULOG_RUN_LOCALLY") != "False":

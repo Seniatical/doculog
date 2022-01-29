@@ -2,14 +2,19 @@
 Parse user config
 """
 import os
-from configparser import ConfigParser, NoOptionError
+from pip._vendor.tomli import load
 from pathlib import Path
 from typing import Dict
+import logging
 
 from dotenv import load_dotenv
 
 from doculog.requests import validate_key
 
+logger = logging.getLogger(__name__)
+ALLOWED_CATEGORY_CONFIGS = (
+    "create_section"
+)
 
 def set_env_vars(vars):
     for k, v in vars.items():
@@ -34,7 +39,7 @@ def configure_api(local):
 
 
 def parse_config(project_root: Path) -> Dict:
-    print(f"Reading environment variables from {project_root / '.env.'}")
+    logger.info(f"Reading environment variables from {project_root / '.env.'}")
     load_dotenv(project_root / ".env")
 
     DEFAULT_VARS = {
@@ -45,6 +50,8 @@ def parse_config(project_root: Path) -> Dict:
     DEFAULT_CONFIG = {
         "changelog_name": "CHANGELOG.md",
         "local": False,
+        "categories": dict(),
+        "category_options": list(),
     }
 
     config_file = project_root / "pyproject.toml"
@@ -53,31 +60,33 @@ def parse_config(project_root: Path) -> Dict:
         set_env_vars(DEFAULT_VARS)
         return DEFAULT_CONFIG
 
-    config = ConfigParser()
-    config.read(config_file)
+    with open(config_file) as fp:
+        config = load(fp)
 
-    if not config.has_section("tool.doculog"):
+    if not "doculog" in config.get("tool", {}):
         set_env_vars(DEFAULT_VARS)
         return DEFAULT_CONFIG
 
-    # Environment variables
-    try:
-        project_name = config.get("tool.doculog", "project").strip("'").strip('"')
-    except NoOptionError:
-        project_name = DEFAULT_VARS["DOCULOG_PROJECT_NAME"]
+    if "categories" in config["tool"]["doculog"]:
+        categories = config["tool"]["doculog"]["categories"]
+        for key, value in categories.items():
+            if key not in ALLOWED_CATEGORY_CONFIGS:
+                DEFAULT_CONFIG["categories"].update({key: value})
+            else:
+                if value is True:
+                    DEFAULT_CONFIG["category_options"].append(key)
 
-    try:
-        local = config.getboolean("tool.doculog", "local")
-    except (NoOptionError, ValueError):
-        local = False
+    # Environment variables
+    project_name = config["tool"]["doculog"].get("project", "")
+    local = config["tool"]["doculog"].get("local", False)
 
     if "DOCUMATIC_API_KEY" not in os.environ and "DOCULOG_API_KEY" not in os.environ:
-        print(
+        logger.warning(
             "Environment variable DOCUMATIC_API_KEY not set. Advanced features disabled."
         )
 
     if "DOCULOG_API_KEY" in os.environ:
-        print(
+        logger.warn(
             "DOCULOG_API_KEY is deprecated and will be removed in v0.2.0. Use DOCUMATIC_API_KEY environment variable to set your api key instead."
         )
 
@@ -85,12 +94,12 @@ def parse_config(project_root: Path) -> Dict:
     os.environ["DOCULOG_RUN_LOCALLY"] = str(local)
 
     # Config values
-    try:
-        changelog_name = config.get("tool.doculog", "changelog").strip("'").strip('"')
-    except NoOptionError:
-        changelog_name = DEFAULT_CONFIG["changelog_name"]
+    changelog_name = config["tool"]["doculog"].get("changelog", DEFAULT_CONFIG["changelog_name"])
 
     if not changelog_name.endswith(".md"):
         changelog_name += ".md"
 
-    return {"changelog_name": changelog_name, "local": local}
+    DEFAULT_CONFIG["changelog_name"] = changelog_name
+    DEFAULT_CONFIG["local"] = local
+
+    return DEFAULT_CONFIG
