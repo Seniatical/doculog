@@ -139,7 +139,7 @@ class ChangelogRelease:
                         title = title[len(cat_title):]
                         # Bug: Fix ... -> Fix ...
                         if "create_section" in self._cat_opts:
-                            commit_type, clean_commit = cat_title, title
+                            commit_type, clean_commit = self.categories[cat_title], title
                         else:
                             commit_type, clean_commit = self.catalog_commit(title)
                             clean_commit = self.categories[cat_title] + clean_commit
