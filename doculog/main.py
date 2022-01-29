@@ -12,11 +12,18 @@ from doculog.config import configure
 from doculog import ChangelogDoc, __version__
 
 
-def generate_changelog():
+def generate_changelog(overwrite: bool = False):
     root = Path.cwd()
 
     config = configure(root)
     log_path = root / config["changelog_name"]
+
+    if overwrite:
+        if log_path.exists():
+            os.remove(log_path.absolute())
+            logger.info("Overwriting current changelog")
+        else:
+            logger.warning("Skipping overwrite, existing changelog file not found", exc_info=1)
 
     doc = ChangelogDoc(log_path, config["categories"], config["category_options"])
     doc.generate()
@@ -44,6 +51,12 @@ parser.add_argument("-v", "--version",
     help="returns current doculog version"
 )
 
+parser.add_argument("-ow", "--overwrite",
+    action="store_true",
+    dest="ow",
+    help="Overwrites existing changelog"
+)
+
 def update_logger():
     # We want all messages to be displayed
     logger.setLevel(logging.DEBUG)
@@ -62,13 +75,6 @@ def parse():
     # else just displays to sys.sdout
     update_logger()
 
-    if args["ow"]:
-        if os.path.exists("./CHANGELOG.md"):
-            os.remove("./CHANGELOG.md")
-            logger.info("Deleted original changelog, generating from scratch")
-        else:
-            logger.warn("Overwrite flag provided, but not file found")
-
     # if args["cl"]:
     #    # Called when --cl or -change-log flag is used
     #    generate_changelog()
@@ -77,6 +83,6 @@ def parse():
         print(f"v{__version__}")
 
     logger.debug("Generating changelog")
-    generate_changelog()
+    generate_changelog(args["ow"])
 
     exit(0)
