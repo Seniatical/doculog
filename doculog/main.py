@@ -81,10 +81,6 @@ def parse():
     # else just displays to sys.sdout
     update_logger()
 
-    # if args["cl"]:
-    #    # Called when --cl or -change-log flag is used
-    #    generate_changelog()
-
     if args["v"]:
         print(f"v{__version__}")
 
