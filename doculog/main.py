@@ -54,7 +54,13 @@ parser.add_argument("-v", "--version",
 parser.add_argument("-ow", "--overwrite",
     action="store_true",
     dest="ow",
-    help="Overwrites existing changelog"
+    help="overwrites existing changelog"
+)
+
+parser.add_argument("-p", "--path", 
+    help="change path to project", 
+    default=None, 
+    dest="p"
 )
 
 def update_logger():
@@ -81,6 +87,11 @@ def parse():
 
     if args["v"]:
         print(f"v{__version__}")
+
+    if args["p"]:
+        path = os.path.abspath(args["p"])
+        logger.info(f"Updating path to project, {path}")
+        os.chdir(path)
 
     logger.debug("Generating changelog")
     generate_changelog(args["ow"])
